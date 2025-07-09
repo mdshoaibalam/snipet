@@ -1,0 +1,61 @@
+import React, { useState, useEffect } from 'react';
+import { Collapse, message } from 'antd';
+
+const { Panel } = Collapse;
+
+const LazyAccordion = () => {
+  const [activePanels, setActivePanels] = useState(['panel1']); // default opened
+  const [fetchedPanels, setFetchedPanels] = useState(['panel1']); // store already fetched panels
+
+  useEffect(() => {
+    // Call API initially for default panel1
+    fetchPanelData(['panel1']);
+  }, []);
+
+  const fetchPanelData = async (panelsToFetch) => {
+    const requestBody = {
+      panels: [...new Set([...fetchedPanels, ...panelsToFetch])],
+    };
+
+    try {
+      console.log('Calling API with:', requestBody);
+      // Simulate API call
+      // await fetch('/api/data', {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify(requestBody),
+      // });
+
+      message.success(`Fetched: ${panelsToFetch.join(', ')}`);
+    } catch (error) {
+      message.error('Failed to fetch data');
+    }
+  };
+
+  const handlePanelChange = (newActiveKeys) => {
+    const newlyOpened = newActiveKeys.filter((key) => !fetchedPanels.includes(key));
+
+    if (newlyOpened.length > 0) {
+      fetchPanelData(newlyOpened);
+      setFetchedPanels((prev) => [...prev, ...newlyOpened]);
+    }
+
+    setActivePanels(newActiveKeys);
+  };
+
+  return (
+    <Collapse activeKey={activePanels} onChange={handlePanelChange}>
+      <Panel header="Panel 1" key="panel1">
+        <p>Content of Panel 1</p>
+      </Panel>
+      <Panel header="Panel 2" key="panel2">
+        <p>Content of Panel 2</p>
+      </Panel>
+      <Panel header="Panel 3" key="panel3">
+        <p>Content of Panel 3</p>
+      </Panel>
+    </Collapse>
+  );
+};
+
+export default LazyAccordion;
