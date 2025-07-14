@@ -1,0 +1,307 @@
+import React, { useState, useEffect } from 'react';
+import {
+  Tabs,
+  Collapse,
+  Select,
+  Spin,
+  Typography,
+  Table,
+  Row,
+  Col,
+  Button,
+  Card,
+  Space,
+  Tooltip,
+  ConfigProvider,
+  theme as antdTheme,
+  Switch,
+} from 'antd';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip as RechartsTooltip,
+  CartesianGrid,
+  ResponsiveContainer,
+} from 'recharts';
+import { ReloadOutlined } from '@ant-design/icons';
+//import { useNavigate } from 'react-router-dom';
+const useNavigate = ()=> {}
+const { TabPane } = Tabs;
+const { Panel } = Collapse;
+const { Option } = Select;
+const { Text, Title } = Typography;
+
+const mockApiCall = (tabKey, panelKey, filters) => {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      const metrics = ['Metric A', 'Metric B', 'Metric C', 'Metric D', 'Metric E'];
+      const result = metrics.map((name) => ({
+        name,
+        today: Math.floor(Math.random() * 100),
+        yesterday: Math.floor(Math.random() * 100),
+        twoDaysAgo: Math.floor(Math.random() * 100),
+      }));
+      resolve(result);
+    }, 800);
+  });
+};
+
+const getChartData = (dataItem) => [
+  { day: 'Two Days Ago', value: dataItem.twoDaysAgo },
+  { day: 'Yesterday', value: dataItem.yesterday },
+  { day: 'Today', value: dataItem.today },
+];
+
+const getTableData = (dataItem) => [
+  { key: '1', day: 'Today', value: dataItem.today },
+  { key: '2', day: 'Yesterday', value: dataItem.yesterday },
+  { key: '3', day: 'Two Days Ago', value: dataItem.twoDaysAgo },
+];
+
+const AnalyticsDashboard = () => {
+  const [activeTab, setActiveTab] = useState('tab1');
+  const [activePanels, setActivePanels] = useState({ tab1: ['panel1'] });
+  const [filters, setFilters] = useState({ productType: ['productA'], region: [], status: [] });
+  const [dataCache, setDataCache] = useState({});
+  const [loadingPanels, setLoadingPanels] = useState({});
+  const [darkMode, setDarkMode] = useState(false);
+  const [compactMode, setCompactMode] = useState(true);
+  const navigate = useNavigate();
+
+  const tabKeys = ['tab1', 'tab2', 'tab3', 'tab4'];
+  const panelKeys = ['panel1', 'panel2', 'panel3', 'panel4'];
+
+  useEffect(() => {
+    fetchData('tab1', 'panel1', filters, true);
+  }, []);
+
+  const fetchData = async (tabKey, panelKey, appliedFilters, force = false) => {
+    const cacheKey = `${tabKey}-${panelKey}`;
+    if (!force && dataCache[cacheKey]) return;
+    setLoadingPanels((prev) => ({ ...prev, [cacheKey]: true }));
+    const result = await mockApiCall(tabKey, panelKey, appliedFilters);
+    setDataCache((prev) => ({ ...prev, [cacheKey]: result }));
+    setLoadingPanels((prev) => ({ ...prev, [cacheKey]: false }));
+  };
+
+  const handleFilterChange = (key, value) => {
+    const newFilters = { ...filters, [key]: value };
+    setFilters(newFilters);
+    setDataCache({});
+    setLoadingPanels({});
+    setActivePanels({ [activeTab]: ['panel1'] });
+    fetchData(activeTab, 'panel1', newFilters, true);
+  };
+
+  const handleTabChange = (key) => {
+    setActiveTab(key);
+    if (!dataCache[`${key}-panel1`]) {
+      fetchData(key, 'panel1', filters, true);
+    }
+    setActivePanels((prev) => ({ ...prev, [key]: ['panel1'] }));
+  };
+
+  const handlePanelChange = (keys, tabKey) => {
+    const newlyOpened = keys.find(k => !(activePanels[tabKey] || []).includes(k));
+    if (newlyOpened && !dataCache[`${tabKey}-${newlyOpened}`]) {
+      fetchData(tabKey, newlyOpened, filters);
+    }
+    setActivePanels((prev) => ({ ...prev, [tabKey]: keys }));
+  };
+
+  const handleGlobalRefresh = () => {
+    setDataCache({});
+    setLoadingPanels({});
+    const defaultAccordion = 'panel1';
+    const newPanels = {};
+    tabKeys.forEach((tab) => {
+      if (tab !== 'tab3') {
+        newPanels[tab] = [defaultAccordion];
+        fetchData(tab, defaultAccordion, filters, true);
+      }
+    });
+    setActivePanels(newPanels);
+  };
+
+  const handleNavigate = ({ metric, day, value }) => {
+    navigate('/details', {
+      state: { metric, day, value, filters },
+    });
+  };
+
+  return (
+    <ConfigProvider theme={{ algorithm: darkMode ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm }}>
+      <div style={{ padding: 20 }}>
+        <Row justify="space-between" align="middle" style={{ marginBottom: 12 }}>
+          <Title level={4}>Analytics Dashboard</Title>
+          <Space>
+            <span><Text>Compact View:</Text> <Switch size="small" checked={compactMode} onChange={setCompactMode} /></span>
+            <Button size="small" onClick={() => setDarkMode(!darkMode)}>
+              Toggle {darkMode ? 'Light' : 'Dark'} Mode
+            </Button>
+          </Space>
+        </Row>
+
+        {activeTab !== 'tab3' && (
+          <Card style={{ marginBottom: 20 }} size="small" bordered>
+            <Space wrap size="middle">
+              <span>
+                <Text strong>Product Type:</Text>{' '}
+                <Select
+                  mode="multiple"
+                  value={filters.productType}
+                  onChange={(val) => handleFilterChange('productType', val)}
+                  style={{ width: 160 }}
+                  size="small"
+                >
+                  <Option value="productA">Product A</Option>
+                  <Option value="productB">Product B</Option>
+                  <Option value="productC">Product C</Option>
+                </Select>
+              </span>
+              <span>
+                <Text strong>Region:</Text>{' '}
+                <Select
+                  mode="multiple"
+                  value={filters.region}
+                  onChange={(val) => handleFilterChange('region', val)}
+                  style={{ width: 160 }}
+                  size="small"
+                >
+                  <Option value="us">US</Option>
+                  <Option value="asia">Asia</Option>
+                  <Option value="europe">Europe</Option>
+                </Select>
+              </span>
+              <span>
+                <Text strong>Status:</Text>{' '}
+                <Select
+                  mode="multiple"
+                  value={filters.status}
+                  onChange={(val) => handleFilterChange('status', val)}
+                  style={{ width: 160 }}
+                  size="small"
+                >
+                  <Option value="active">Active</Option>
+                  <Option value="inactive">Inactive</Option>
+                </Select>
+              </span>
+              <Button icon={<ReloadOutlined />} onClick={handleGlobalRefresh} size="small" type="default">
+                Refresh All
+              </Button>
+            </Space>
+          </Card>
+        )}
+
+        <Tabs activeKey={activeTab} onChange={handleTabChange} size="small">
+          {tabKeys.map((tabKey) => (
+            <TabPane tab={tabKey.toUpperCase()} key={tabKey}>
+              <Collapse
+                activeKey={activePanels[tabKey] || []}
+                onChange={(keys) => handlePanelChange(keys, tabKey)}
+                ghost
+              >
+                {panelKeys.map((panelKey) => {
+                  const cacheKey = `${tabKey}-${panelKey}`;
+                  const dataItems = dataCache[cacheKey];
+                  const loading = loadingPanels[cacheKey];
+                  return (
+                    <Panel
+                      key={panelKey}
+                      header={
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Text strong>{`Section ${panelKey.toUpperCase()}`}</Text>
+                          <Tooltip title="Refresh this section">
+                            <ReloadOutlined
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                fetchData(tabKey, panelKey, filters, true);
+                              }}
+                              style={{ fontSize: 16, color: '#1890ff' }}
+                            />
+                          </Tooltip>
+                        </div>
+                      }
+                    >
+                      {loading ? (
+                        <Spin />
+                      ) : dataItems ? (
+                        <Row gutter={[16, 16]}>
+                          {dataItems.map((item, index) => (
+                            <Col span={compactMode ? 12 : 24} key={index}>
+                              <Card size="small" bordered>
+                                <Text strong>{item.name}</Text>
+                                <Row gutter={[8, 8]} style={{ marginTop: 12 }}>
+                                  <Col span={12}>
+                                    <ResponsiveContainer width="100%" height={compactMode ? 140 : 240}>
+                                      <LineChart
+                                        data={getChartData(item)}
+                                        onClick={(e) => {
+                                          if (e?.activeLabel && e.activePayload?.[0]) {
+                                            handleNavigate({
+                                              metric: item.name,
+                                              day: e.activeLabel,
+                                              value: e.activePayload[0].value,
+                                            });
+                                          }
+                                        }}
+                                      >
+                                        <CartesianGrid stroke="#eee" strokeDasharray="3 3" />
+                                        <XAxis dataKey="day" />
+                                        <YAxis />
+                                        <RechartsTooltip />
+                                        <Line type="monotone" dataKey="value" stroke="#1890ff" />
+                                      </LineChart>
+                                    </ResponsiveContainer>
+                                  </Col>
+                                  <Col span={12}>
+                                    <Table
+                                      dataSource={getTableData(item)}
+                                      pagination={false}
+                                      size="small"
+                                      bordered
+                                      columns={[
+                                        { title: 'Day', dataIndex: 'day', key: 'day' },
+                                        {
+                                          title: 'Value',
+                                          dataIndex: 'value',
+                                          key: 'value',
+                                          render: (text, row) => (
+                                            <span
+                                              style={{ color: '#1890ff', cursor: 'pointer' }}
+                                              onClick={() => handleNavigate({
+                                                metric: item.name,
+                                                day: row.day,
+                                                value: row.value,
+                                              })}
+                                            >
+                                              {text}
+                                            </span>
+                                          ),
+                                        },
+                                      ]}
+                                    />
+                                  </Col>
+                                </Row>
+                              </Card>
+                            </Col>
+                          ))}
+                        </Row>
+                      ) : (
+                        <Text type="secondary">Click to load data.</Text>
+                      )}
+                    </Panel>
+                  );
+                })}
+              </Collapse>
+            </TabPane>
+          ))}
+        </Tabs>
+      </div>
+    </ConfigProvider>
+  );
+};
+
+export default AnalyticsDashboard;
