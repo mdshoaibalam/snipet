@@ -1,0 +1,140 @@
+import React, { useEffect, useState } from 'react';
+import { Select, Spin } from 'antd';
+
+const { Option } = Select;
+
+const ALL_VALUE = 'ALL';
+const CACHE_KEY = 'select_component_cache';
+
+const CustomSelect = ({
+  value,
+  onChange,
+  cache = false,
+  ALL_TEXT = false,
+  multiSelect = false,
+}) => {
+  const [options, setOptions] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  // Simulated API call
+  const fetchMockData = () => {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve([
+          { label: 'Option 1', value: '1' },
+          { label: 'Option 2', value: '2' },
+          { label: 'Option 3', value: '3' },
+        ]);
+      }, 1000);
+    });
+  };
+
+  // Add "ALL" option if ALL_TEXT is true
+  const getOptionsWithAll = (data) => {
+    if (ALL_TEXT) {
+      return [{ label: 'ALL', value: ALL_VALUE }, ...data];
+    }
+    return data;
+  };
+
+  // Load options on mount
+  useEffect(() => {
+    const loadOptions = async () => {
+      setLoading(true);
+      try {
+        if (cache) {
+          const cached = localStorage.getItem(CACHE_KEY);
+          if (cached) {
+            setOptions(getOptionsWithAll(JSON.parse(cached)));
+            return;
+          }
+        }
+
+        const data = await fetchMockData();
+
+        if (cache) {
+          localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+        }
+
+        setOptions(getOptionsWithAll(data));
+      } catch (err) {
+        console.error('Failed to load options', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadOptions();
+  }, [cache]);
+
+  // Handle user selection
+  const handleChange = (selectedValue) => {
+    if (multiSelect) {
+      // If ALL is selected, reset to only ALL
+      if (selectedValue.includes(ALL_VALUE)) {
+        onChange?.([ALL_VALUE]);
+      } else {
+        onChange?.(selectedValue);
+      }
+    } else {
+      onChange?.(selectedValue);
+    }
+  };
+
+  // Ensure only "ALL" is selected in multi-select mode
+  useEffect(() => {
+    if (multiSelect && Array.isArray(value)) {
+      if (value.includes(ALL_VALUE) && value.length > 1) {
+        onChange?.([ALL_VALUE]);
+      }
+    }
+  }, [value]);
+
+
+  const getFilteredOptions = () => options;
+
+  return (
+    <Spin spinning={loading}>
+      <Select
+        mode={multiSelect ? 'multiple' : undefined}
+        value={value}
+        onChange={handleChange}
+        style={{ width: '100%' }}
+        placeholder="Select option(s)"
+        allowClear
+      >
+        {getFilteredOptions().map(opt => (
+          <Option key={opt.value} value={opt.value}>
+            {opt.label}
+          </Option>
+        ))}
+      </Select>
+    </Spin>
+  );
+};
+
+export default CustomSelect;
+
+
+
+
+
+
+export const EntityControl = () => {
+     const [selected, setSelected] = useState(['2']);
+
+   
+  return (
+    <div style={{ padding: 20 }}>
+      <h3>Custom Select with ALL</h3>
+       <p>Selected: {JSON.stringify(selected)}</p>
+    <CustomSelect
+        value={selected}
+        onChange={setSelected}
+        cache={false}
+        ALL_TEXT={true}
+        multiSelect={false}
+      />
+    </div>
+  );
+};
